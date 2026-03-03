@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Database</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 2rem;
+      font-size: 1.8rem;
+      color: #38bdf8;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    /* Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #1e293b;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+    th, td {
+      padding: 12px 16px;
+      text-align: left;
+    }
+    th {
+      background: #334155;
+      color: #94a3b8;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    tr:not(:last-child) td { border-bottom: 1px solid #334155; }
+    tr:hover td { background: #253349; }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .badge-user       { background: #164e63; color: #67e8f9; }
+    .badge-admin      { background: #713f12; color: #fbbf24; }
+    .badge-superadmin  { background: #581c87; color: #c084fc; }
+
+    /* Form */
+    .form-card {
+      background: #1e293b;
+      border-radius: 8px;
+      padding: 1.5rem;
+    }
+    .form-card h2 {
+      margin-bottom: 1rem;
+      font-size: 1.2rem;
+      color: #38bdf8;
+    }
+    .form-row {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    .form-row > * { flex: 1; min-width: 150px; }
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: #94a3b8;
+      margin-bottom: 4px;
+    }
+    input, select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #475569;
+      border-radius: 6px;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-size: 0.95rem;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: #38bdf8;
+    }
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 10px 24px;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:hover { background: #1d4ed8; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .msg {
+      margin-top: 1rem;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      display: none;
+    }
+    .msg.error   { display: block; background: #450a0a; color: #fca5a5; }
+    .msg.success { display: block; background: #052e16; color: #86efac; }
+
+    .empty { text-align: center; padding: 2rem; color: #64748b; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>User Database</h1>
+
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Username</th>
+          <th>Group</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody id="users-body">
+        <tr><td colspan="4" class="empty">Loading...</td></tr>
+      </tbody>
+    </table>
+
+    <div class="form-card">
+      <h2>Add User</h2>
+      <form id="add-form">
+        <div class="form-row">
+          <div>
+            <label for="username">Username</label>
+            <input type="text" id="username" required maxlength="50" placeholder="e.g. john">
+          </div>
+          <div>
+            <label for="group">Group</label>
+            <select id="group">
+              <option value="user">user</option>
+              <option value="admin">admin</option>
+              <option value="superadmin">superadmin</option>
+            </select>
+          </div>
+          <div>
+            <label for="password">Admin Password</label>
+            <input type="password" id="password" required placeholder="Enter admin password">
+          </div>
+        </div>
+        <button type="submit" id="submit-btn">Add User</button>
+      </form>
+      <div class="msg" id="msg"></div>
+    </div>
+  </div>
+
+  <script>
+    const tbody    = document.getElementById("users-body");
+    const form     = document.getElementById("add-form");
+    const msgEl    = document.getElementById("msg");
+    const submitBtn = document.getElementById("submit-btn");
+
+    function badgeClass(group) {
+      return "badge badge-" + group;
+    }
+
+    function formatDate(iso) {
+      return new Date(iso).toLocaleString();
+    }
+
+    async function loadUsers() {
+      try {
+        const res = await fetch("/api/users");
+        const users = await res.json();
+        if (users.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" class="empty">No users yet.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = users.map(u => `
+          <tr>
+            <td>${u.id}</td>
+            <td>${escapeHtml(u.username)}</td>
+            <td><span class="${badgeClass(u.user_group)}">${u.user_group}</span></td>
+            <td>${formatDate(u.created_at)}</td>
+          </tr>
+        `).join("");
+      } catch {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty">Failed to load users.</td></tr>';
+      }
+    }
+
+    function escapeHtml(str) {
+      const d = document.createElement("div");
+      d.textContent = str;
+      return d.innerHTML;
+    }
+
+    function showMsg(text, type) {
+      msgEl.textContent = text;
+      msgEl.className = "msg " + type;
+      setTimeout(() => { msgEl.className = "msg"; }, 4000);
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      submitBtn.disabled = true;
+
+      const username = document.getElementById("username").value.trim();
+      const user_group = document.getElementById("group").value;
+      const password = document.getElementById("password").value;
+
+      try {
+        const res = await fetch("/api/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, user_group, password }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          showMsg(data.error || "Something went wrong", "error");
+          return;
+        }
+
+        showMsg(`User "${data.username}" added successfully!`, "success");
+        form.reset();
+        loadUsers();
+      } catch {
+        showMsg("Network error", "error");
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+
+    loadUsers();
+  </script>
+</body>
+</html>
